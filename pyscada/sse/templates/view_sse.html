@@ -1,0 +1,13 @@
+{% extends "view.html" %}
+
+{% load i18n static %}
+
+{% block include_bottom %}
+    {% for js_file in javascript_files_list %}
+        <script language="javascript" type="text/javascript" src={{ js_file.src }}></script>
+    {% endfor %}
+
+    <script src="{% static 'django_eventstream/eventsource.min.js' %}"></script>
+    <script src="{% static 'django_eventstream/reconnecting-eventsource.js' %}"></script>
+    {% include "load_sse.html" %}
+{% endblock %}
