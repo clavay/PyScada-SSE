@@ -33,6 +33,7 @@ Installation
         proxy_pass http://localhost:7999;
     }
 
+
  - install `pushpin <https://pushpin.org/>`_ : `sudo apt install pushpin`
  - add to `/etc/pushpin/routes ` :
 
@@ -41,6 +42,7 @@ Installation
     *,path_beg=/events localhost:8000
     *,ssl=yes localhost:443
     * localhost:80
+
 
  - add to `settings.py` :
 
@@ -51,6 +53,17 @@ Installation
     ...
     "django_eventstream",
     ]
+
+    MIDDLEWARE = [
+        "django_grip.GripMiddleware",
+        ...
+    ]
+
+    GRIP_URL = 'http://localhost:5561'
+    EVENTSTREAM_STORAGE_CLASS = 'django_eventstream.storage.DjangoModelStorage'
+    EVENTSTREAM_CHANNELMANAGER_CLASS = 'pyscada.sse.channelmanager.MyChannelManager'
+
+
 
 
 Contribute
