@@ -26,10 +26,10 @@ session_events.addEventListener('message', function (e) {
     //console.log("received message");
     for (key in result) {
         if(key == "data") {
-            console.log(result.data);
+            //console.log(result.data);
             data_handler_done(result.data);
         }else if(key == "percent") {
-            console.log(result.percent);
+            //console.log(result.percent);
             set_loading_state(5, parseFloat(result.percent) * 100);
             if (result.percent == 1) {hide_init_status();hide_update_status();}
         }else {

@@ -32,7 +32,7 @@ setup(
     classifiers=CLASSIFIERS,
     install_requires=[
         "django>=5.1",
-        "pyscada>=0.8.4",
+        "pyscada>=0.8.3",
         "django_eventstream>=5.1.0",
         "daphne",
         "Twisted[tls,http2]",
