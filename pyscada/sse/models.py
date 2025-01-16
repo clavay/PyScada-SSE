@@ -48,7 +48,7 @@ class Historic(models.Model):
             message["data"] = {}
         if "server_time" not in message["data"]:
             message["data"]["server_time"] = time() * 1000
-        logger.debug(f"send state to session-{self.session_key}-view-{self.view.id} : {message}")
+        #logger.debug(f"send state to session-{self.session_key}-view-{self.view.id} : {message}")
         self.send_event("message", message, async_publish=async_publish)
 
     def send_event(self, event_type="message", message=None, async_publish=False):
@@ -74,7 +74,7 @@ class Historic(models.Model):
             "query_first_value": True,
         }
         result = Variable.objects.read_multiple(**read_multiple_kwargs)
-        logger.info(result)
+        #logger.info(result)
         self.send_message({"data": result, "percent": 0}, async_publish=True)
 
         # variable_properties
@@ -86,7 +86,7 @@ class Historic(models.Model):
             result["variable_properties_last_modified"][item.pk] = (
                 item.last_modified.timestamp() * 1000
             )
-        logger.info(result)
+        #logger.info(result)
         self.send_message({"data": result, "percent": 0}, async_publish=True)
 
         # chart variables

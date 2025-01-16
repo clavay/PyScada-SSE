@@ -24,6 +24,13 @@ Installation
 
 ::
 
+    upstream app_server {
+    ...
+        server 127.0.0.1:8000 fail_timeout=0; # for a file socket
+    ...
+    }
+
+server {
     listen   443 default_server ssl http2;
     listen [::]:443 ssl http2;
 
@@ -44,6 +51,7 @@ Installation
     * localhost:80
 
 
+ - restart pushpin : `sudo systemctl restart pushpin`
  - add to `settings.py` :
 
 ::
@@ -63,8 +71,11 @@ Installation
     EVENTSTREAM_STORAGE_CLASS = 'django_eventstream.storage.DjangoModelStorage'
     EVENTSTREAM_CHANNELMANAGER_CLASS = 'pyscada.sse.channelmanager.MyChannelManager'
 
+    ASGI_APPLICATION = 'PyScadaServer.asgi.application'
+    #WSGI_APPLICATION = 'PyScadaServer.wsgi.application'
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-
+ - start daphne : `cd /var/www/pyscada/PyScadaServer/; sudo -u pyscada /home/pyscada/.venv/bin/daphne PyScadaServer.asgi:application -b 127.0.0.1 -p 8000 -v 3`
 
 Contribute
 ----------
