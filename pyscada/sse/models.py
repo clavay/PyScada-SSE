@@ -182,6 +182,6 @@ class SSE(WidgetContentModel):
             if hasattr(settings, "STATIC_URL")
             else "/static/"
         )
-        opts["javascript_files_list"] = [f"{STATIC_URL}django_eventstream/eventsource.min.js", f"{STATIC_URL}django_eventstream/reconnecting-eventsource.js", f"{STATIC_URL}pyscada/js/sse/pyscada_sse.js", ]
+        opts["javascript_files_list"] = [f"{STATIC_URL}django_eventstream/eventsource.min.js", f"{STATIC_URL}django_eventstream/reconnecting-eventsource.js", ]
 
         return main_content, sidebar_content, opts
