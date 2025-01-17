@@ -35,7 +35,7 @@ class PyScadaSSEConfig(AppConfig):
             pass
 
     def pyscada_send_cov_notification(self, variable=None, variable_property=None):
-        logger.info(f"{variable} {variable_property}")
+        logger.debug(f"{variable} {variable_property}")
         from .models import Historic
 
         for hst in (
@@ -51,7 +51,7 @@ class PyScadaSSEConfig(AppConfig):
             .distinct()
         ):
             vdo = hst.view.data_objects(hst.user)
-            logger.info(vdo)
+            logger.debug(vdo)
             variables_filtered = []
             if (
                 variable is not None
@@ -85,5 +85,5 @@ class PyScadaSSEConfig(AppConfig):
                 data["variable_properties_last_modified"] = {variable_property.id: t}
                 timestamp = max(timestamp, t)
             data["timestamp"] = timestamp
-            logger.warning({f"data_sse {hst}: {data}"})
+            logger.info({f"data_sse {hst}: {data}"})
             hst.send_message({"data": data})

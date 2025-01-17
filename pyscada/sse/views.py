@@ -143,7 +143,27 @@ async def aform_write_task(request):
         try:
             float(value)
         except ValueError:
-            logger.debug("form_write_task input is not a float")
+            try:
+                vp = VariableProperty.objects.get(id=key)
+                if item_type == "variable_property" and vp.value_class.upper() in [
+                    "STRING"
+                ]:
+                    VariableProperty.objects.update_property(
+                        variable_property=vp,
+                        value=value,
+                    )
+                    # TODO: write string
+                    # cwt = DeviceWriteTask(
+                    #    variable_property_id=key,
+                    #    value=value,
+                    #    start=time.time(),
+                    #    user=request.user,
+                    # )
+                    # cwt.create_and_notificate(cwt)
+                    return HttpResponse(status=200)
+            except VariableProperty.DoesNotExist:
+                pass
+            logger.info(f"Cannot write STRING '{value}' to {item_type} {key}")
             return HttpResponse(status=403)
         if await GroupDisplayPermission.objects.acount() == 0:
             if item_type == "variable":

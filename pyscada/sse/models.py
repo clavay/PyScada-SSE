@@ -113,16 +113,10 @@ class Historic(models.Model):
             # logger.debug(result)
             result["timestamp"] = end
             percent = (end - start_temp) / (end - start)
-            logger.info(
+            logger.debug(
                 f"{percent}% - querying {datetime.fromtimestamp(start_temp/1000)} to {datetime.fromtimestamp(end_temp/1000)} for {list(self.variables.values_list('id', flat=True))} {list(self.status_variables.values_list('id', flat=True))} {list(self.variable_properties.values_list('id', flat=True))}"
             )
             self.send_message({"data": result, "percent": percent}, async_publish=True)
-            result_length = 0
-            for k, v in result.items():
-                result_length += len(v) if type(v) == list else 0
-            logger.info(
-                f"{datetime.fromtimestamp(start_temp/1000)} - {time()-t_start} - {end_temp - start_temp} - {percent} - {result_length}"
-            )
             end_temp = start_temp
 
         self.send_message({"historic": "read_end"}, async_publish=True)
@@ -133,7 +127,7 @@ class Historic(models.Model):
         self, variables=list(), status_variables=list(), variable_properties=list()
     ):
         vdo = self.view.data_objects(self.user)
-        logger.info(vdo)
+        logger.debug(vdo)
         variables_filtered = []
         for var in variables:
             if "variable" in vdo and var.pk in vdo["variable"]:
@@ -159,19 +153,15 @@ class Historic(models.Model):
                 logger.info(
                     f"variable_property {var} not allowed in view {self.view} for user {self.user}"
                 )
-        logger.info(variables_filtered)
-        logger.info(status_variables_filtered)
-        logger.info(variable_properties_filtered)
+        logger.debug(variables_filtered)
+        logger.debug(status_variables_filtered)
+        logger.debug(variable_properties_filtered)
         self.variables.clear()
         self.status_variables.clear()
         self.variable_properties.clear()
-        self.variables.add(*variables_filtered)  # TODO : filter authorized variables
-        self.status_variables.add(
-            *status_variables_filtered
-        )  # TODO : filter authorized variables
-        self.variable_properties.add(
-            *variable_properties_filtered
-        )  # TODO : filter authorized variables
+        self.variables.add(*variables_filtered)
+        self.status_variables.add(*status_variables_filtered)
+        self.variable_properties.add(*variable_properties_filtered)
 
 
 class SSE(WidgetContentModel):
