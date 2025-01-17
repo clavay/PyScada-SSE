@@ -1,92 +1,92 @@
 <div id="pyscadaSSE-{{ widget_pk }}" class="pyscadaSSE pyscadaDateTimeChange"></div>
 <script>
-document.addEventListener("DOMContentLoaded", (event) => {
+    document.addEventListener("DOMContentLoaded", (event) => {
     // Connect to broadcast event
-    var broadcast_events = new ReconnectingEventSource('/events/broadcast/');
+        var broadcast_events = new ReconnectingEventSource('/events/broadcast/');
 
-    broadcast_events.addEventListener('message', function (e) {
-        console.log("broadcast message");
-        console.log(e.data);
-    }, false);
+        broadcast_events.addEventListener('message', function (e) {
+            console.log("broadcast message");
+            console.log(e.data);
+        }, false);
 
-    broadcast_events.addEventListener('stream-reset', function (e) {
-        console.log("broadcast stream-reset");
-        console.log(e.data);
-    }, false);
+        broadcast_events.addEventListener('stream-reset', function (e) {
+            console.log("broadcast stream-reset");
+            console.log(e.data);
+        }, false);
 
-    broadcast_events.addEventListener('stream-error', function (e) {
-        console.log("broadcast stream-error");
-        console.log(e.data);
-    }, false);
+        broadcast_events.addEventListener('stream-error', function (e) {
+            console.log("broadcast stream-error");
+            console.log(e.data);
+        }, false);
 
     // Connect to session events
-    var session_events = new ReconnectingEventSource('/events/session/{{ request.session.session_key }}/view/{{ view.id }}');
+        var session_events = new ReconnectingEventSource('/events/session/{{ request.session.session_key }}/view/{{ view.id }}');
 
-    session_events.addEventListener('message', function (e) {
-        var result = JSON.parse(e.data)
+        session_events.addEventListener('message', function (e) {
+            var result = JSON.parse(e.data)
         //console.log("received message");
-        for (key in result) {
-            if(key == "data") {
+            for (key in result) {
+                if(key == "data") {
                 //console.log(result.data);
-                data_handler_done(result.data);
-            }else if(key == "percent") {
+                    data_handler_done(result.data);
+                }else if(key == "percent") {
                 //console.log(result.percent);
-                set_loading_state(5, parseFloat(result.percent) * 100);
-                if (result.percent == 1) {hide_init_status();hide_update_status();}
-            }else {
+                    set_loading_state(5, parseFloat(result.percent) * 100);
+                    if (result.percent == 1) {hide_init_status();hide_update_status();}
+                }else {
                 //console.log(key + " : " + JSON.stringify(result[key]));
-            };
-        }
-    }, false);
+                };
+            }
+        }, false);
 
-    session_events.addEventListener('stream-reset', function (e) {
-        console.log("stream-reset");
-        console.log(e.data);
-    }, false);
+        session_events.addEventListener('stream-reset', function (e) {
+            console.log("stream-reset");
+            console.log(e.data);
+        }, false);
 
-    session_events.addEventListener('stream-error', function (e) {
-        console.log("stream-error");
-        console.log(e.data);
-    }, false);
+        session_events.addEventListener('stream-error', function (e) {
+            console.log("stream-error");
+            console.log(e.data);
+        }, false);
 
 
     /**
     * Query historical data using date time range and chart variables keys list
     * @returns void
     */
-    function query_historical_data() {
-        data = JSON.stringify({
-            start: ((DATA_DISPLAY_FROM_TIMESTAMP == -1) ? DATA_FROM_TIMESTAMP : DATA_DISPLAY_FROM_TIMESTAMP),
-            end: ((DATA_DISPLAY_TO_TIMESTAMP == -1) ? DATA_TO_TIMESTAMP : DATA_DISPLAY_TO_TIMESTAMP),
-            variable_ids: CHART_VARIABLE_KEYS.keys(),
-            status_variable_ids: STATUS_VARIABLE_KEYS.keys(),
-            variable_property_ids: VARIABLE_PROPERTY_KEYS,
-            view_id: {{ view.id }},
-        });
-        fetch("/need_historical_data/", {
-        method: "POST",
-        body: data,
-        headers: {
-            "Content-type": "application/json; charset=UTF-8",
-            'X-CSRFToken': CSRFTOKEN,
-        }
-        })
-        .catch((error) => {
-            console.log(error)
-        });
+        function query_historical_data() {
+            data = JSON.stringify({
+                start: ((DATA_DISPLAY_FROM_TIMESTAMP == -1) ? DATA_FROM_TIMESTAMP : DATA_DISPLAY_FROM_TIMESTAMP),
+                end: ((DATA_DISPLAY_TO_TIMESTAMP == -1) ? DATA_TO_TIMESTAMP : DATA_DISPLAY_TO_TIMESTAMP),
+                variable_ids: CHART_VARIABLE_KEYS.keys(),
+                status_variable_ids: STATUS_VARIABLE_KEYS.keys(),
+                variable_property_ids: VARIABLE_PROPERTY_KEYS,
+                view_id: {{ view.id }},
+            });
+            fetch("/need_historical_data/", {
+                method: "POST",
+                body: data,
+                headers: {
+                    "Content-type": "application/json; charset=UTF-8",
+                    'X-CSRFToken': CSRFTOKEN,
+                }
+            })
+                .catch((error) => {
+                    console.log(error)
+                });
         //.then((response) => response.json())
         //.then((json) => console.log(json));
-    };
+        };
 
     // query historic on date time range change
 
-    SYNC_HANDLING_DATA = false;
-    WRITE_TASK_URL = "form/awrite_task_sse/";
-    console.log("PyScada SSE : loaded.");
-    document.addEventListener("PyScadaCoreJSLoaded", (event) => {
-        document.querySelectorAll(".loadingAnimation").forEach(e => e.parentNode.style.display = 'none');
-        query_historical_data()
-    }, false);
-    document.querySelector("#pyscadaSSE-{{ widget_pk }}").addEventListener("pyscadaDateTimeChange", (event) => {query_historical_data()}, false);
-});
+        SYNC_HANDLING_DATA = false;
+        WRITE_TASK_URL = "form/awrite_task_sse/";
+        console.log("PyScada SSE : loaded.");
+        document.addEventListener("PyScadaCoreJSLoaded", (event) => {
+            document.querySelectorAll(".loadingAnimation").forEach(e => e.parentNode.style.display = 'none');
+            query_historical_data()
+        }, false);
+        document.querySelector("#pyscadaSSE-{{ widget_pk }}").addEventListener("pyscadaDateTimeChange", (event) => {query_historical_data()}, false);
+    });
 </script>

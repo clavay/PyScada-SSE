@@ -50,18 +50,21 @@ class Historic(models.Model):
             message["data"] = {}
         if "server_time" not in message["data"]:
             message["data"]["server_time"] = time() * 1000
-        #logger.debug(f"send state to session-{self.session_key}-view-{self.view.id} : {message}")
+        # logger.debug(f"send state to session-{self.session_key}-view-{self.view.id} : {message}")
         self.send_event("message", message, async_publish=async_publish)
 
     def send_event(self, event_type="message", message=None, async_publish=False):
-        send_event(f"session-{self.session_key}-view-{self.view.id}", event_type, message, async_publish=async_publish)
-
+        send_event(
+            f"session-{self.session_key}-view-{self.view.id}",
+            event_type,
+            message,
+            async_publish=async_publish,
+        )
 
     def is_expired(self, td=timedelta(days=1)):
         return datetime.now(tz=timezone.utc) - self.updated <= td
 
     def read_and_send_data(self):
-
         self.send_message({"historic": "read_start"}, async_publish=True)
         start = self.start.timestamp() * 1000
         end = self.end.timestamp() * 1000
@@ -76,19 +79,21 @@ class Historic(models.Model):
             "query_first_value": True,
         }
         result = Variable.objects.read_multiple(**read_multiple_kwargs)
-        #logger.info(result)
+        # logger.info(result)
         self.send_message({"data": result, "percent": 0}, async_publish=True)
 
         # variable_properties
         result = {}
         result["variable_properties"] = {}
         result["variable_properties_last_modified"] = {}
-        for item in VariableProperty.objects.filter(pk__in=self.variable_properties.all()):
+        for item in VariableProperty.objects.filter(
+            pk__in=self.variable_properties.all()
+        ):
             result["variable_properties"][item.pk] = item.value()
             result["variable_properties_last_modified"][item.pk] = (
                 item.last_modified.timestamp() * 1000
             )
-        #logger.info(result)
+        # logger.info(result)
         self.send_message({"data": result, "percent": 0}, async_publish=True)
 
         # chart variables
@@ -105,52 +110,68 @@ class Historic(models.Model):
                 "time_in_ms": True,
             }
             result = Variable.objects.read_multiple(**read_multiple_kwargs)
-            #logger.debug(result)
+            # logger.debug(result)
             result["timestamp"] = end
-            percent = (end - start_temp)/(end - start)
-            logger.info(f"{percent}% - querying {datetime.fromtimestamp(start_temp/1000)} to {datetime.fromtimestamp(end_temp/1000)} for {list(self.variables.values_list('id', flat=True))} {list(self.status_variables.values_list('id', flat=True))} {list(self.variable_properties.values_list('id', flat=True))}")
+            percent = (end - start_temp) / (end - start)
+            logger.info(
+                f"{percent}% - querying {datetime.fromtimestamp(start_temp/1000)} to {datetime.fromtimestamp(end_temp/1000)} for {list(self.variables.values_list('id', flat=True))} {list(self.status_variables.values_list('id', flat=True))} {list(self.variable_properties.values_list('id', flat=True))}"
+            )
             self.send_message({"data": result, "percent": percent}, async_publish=True)
             result_length = 0
             for k, v in result.items():
                 result_length += len(v) if type(v) == list else 0
-            logger.info(f"{datetime.fromtimestamp(start_temp/1000)} - {time()-t_start} - {end_temp - start_temp} - {percent} - {result_length}")
+            logger.info(
+                f"{datetime.fromtimestamp(start_temp/1000)} - {time()-t_start} - {end_temp - start_temp} - {percent} - {result_length}"
+            )
             end_temp = start_temp
 
         self.send_message({"historic": "read_end"}, async_publish=True)
         self.done = True
         self.save(update_fields=["done"])
 
-    def update_objects(self, variables=list(), status_variables=list(), variable_properties=list()):
-            vdo = self.view.data_objects(self.user)
-            logger.info(vdo)
-            variables_filtered = []
-            for var in variables:
-                if "variable" in vdo and var.pk in vdo["variable"]:
-                    variables_filtered.append(var)
-                else:
-                    logger.info(f"variable {var} not allowed in view {self.view} for user {self.user}")
-            status_variables_filtered = []
-            for var in status_variables:
-                if "variable" in vdo and var.pk in vdo["variable"]:
-                    status_variables_filtered.append(var)
-                else:
-                    logger.info(f"status_variable {var} not allowed in view {self.view} for user {self.user}")
+    def update_objects(
+        self, variables=list(), status_variables=list(), variable_properties=list()
+    ):
+        vdo = self.view.data_objects(self.user)
+        logger.info(vdo)
+        variables_filtered = []
+        for var in variables:
+            if "variable" in vdo and var.pk in vdo["variable"]:
+                variables_filtered.append(var)
+            else:
+                logger.info(
+                    f"variable {var} not allowed in view {self.view} for user {self.user}"
+                )
+        status_variables_filtered = []
+        for var in status_variables:
+            if "variable" in vdo and var.pk in vdo["variable"]:
+                status_variables_filtered.append(var)
+            else:
+                logger.info(
+                    f"status_variable {var} not allowed in view {self.view} for user {self.user}"
+                )
 
-            variable_properties_filtered = []
-            for var in variable_properties:
-                if "variable_property" in vdo and var.pk in vdo["variable_property"]:
-                    variable_properties_filtered.append(var)
-                else:
-                    logger.info(f"variable_property {var} not allowed in view {self.view} for user {self.user}")
-            logger.info(variables_filtered)
-            logger.info(status_variables_filtered)
-            logger.info(variable_properties_filtered)
-            self.variables.clear()
-            self.status_variables.clear()
-            self.variable_properties.clear()
-            self.variables.add(*variables_filtered)  # TODO : filter authorized variables
-            self.status_variables.add(*status_variables_filtered)  # TODO : filter authorized variables
-            self.variable_properties.add(*variable_properties_filtered)  # TODO : filter authorized variables
+        variable_properties_filtered = []
+        for var in variable_properties:
+            if "variable_property" in vdo and var.pk in vdo["variable_property"]:
+                variable_properties_filtered.append(var)
+            else:
+                logger.info(
+                    f"variable_property {var} not allowed in view {self.view} for user {self.user}"
+                )
+        logger.info(variables_filtered)
+        logger.info(status_variables_filtered)
+        logger.info(variable_properties_filtered)
+        self.variables.clear()
+        self.status_variables.clear()
+        self.variable_properties.clear()
+        self.variables.add(*variables_filtered)  # TODO : filter authorized variables
+        self.status_variables.add(
+            *status_variables_filtered
+        )  # TODO : filter authorized variables
+        self.variable_properties.add(
+            *variable_properties_filtered
+        )  # TODO : filter authorized variables
 
 
 class SSE(WidgetContentModel):
@@ -173,15 +194,18 @@ class SSE(WidgetContentModel):
         widget_pk = kwargs["widget_pk"] if "widget_pk" in kwargs else 0
 
         main_template = get_template("load_sse.html")
-        main_content = main_template.render(dict(widget_pk=widget_pk,view=kwargs["view"],request=kwargs["request"]))
+        main_content = main_template.render(
+            dict(widget_pk=widget_pk, view=kwargs["view"], request=kwargs["request"])
+        )
         sidebar_content = None
 
         opts = dict()
         STATIC_URL = (
-            str(settings.STATIC_URL)
-            if hasattr(settings, "STATIC_URL")
-            else "/static/"
+            str(settings.STATIC_URL) if hasattr(settings, "STATIC_URL") else "/static/"
         )
-        opts["javascript_files_list"] = [f"{STATIC_URL}django_eventstream/eventsource.min.js", f"{STATIC_URL}django_eventstream/reconnecting-eventsource.js", ]
+        opts["javascript_files_list"] = [
+            f"{STATIC_URL}django_eventstream/eventsource.min.js",
+            f"{STATIC_URL}django_eventstream/reconnecting-eventsource.js",
+        ]
 
         return main_content, sidebar_content, opts

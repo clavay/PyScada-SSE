@@ -6,7 +6,5 @@ import pyscada
 __version__ = "0.8.0"
 __author__ = "Camille Lavayssiere"
 __email__ = "team@pyscada.org"
-__description__ = (
-    "Server-Sent-Event extension for PyScada a Python and Django based Open Source SCADA System"
-)
+__description__ = "Server-Sent-Event extension for PyScada a Python and Django based Open Source SCADA System"
 __app_name__ = "SSE"

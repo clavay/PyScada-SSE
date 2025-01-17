@@ -34,20 +34,41 @@ class PyScadaSSEConfig(AppConfig):
         except OperationalError:
             pass
 
-
     def pyscada_send_cov_notification(self, variable=None, variable_property=None):
         logger.info(f"{variable} {variable_property}")
         from .models import Historic
-        for hst in Historic.objects.filter(updated__gte=datetime.datetime.now(tz=datetime.timezone.utc)-datetime.timedelta(days=1)).filter(Q(variables__in=[variable]) | Q(status_variables__in=[variable]) | Q(variable_properties__in=[variable_property])).distinct():
+
+        for hst in (
+            Historic.objects.filter(
+                updated__gte=datetime.datetime.now(tz=datetime.timezone.utc)
+                - datetime.timedelta(days=1)
+            )
+            .filter(
+                Q(variables__in=[variable])
+                | Q(status_variables__in=[variable])
+                | Q(variable_properties__in=[variable_property])
+            )
+            .distinct()
+        ):
             vdo = hst.view.data_objects(hst.user)
             logger.info(vdo)
             variables_filtered = []
-            if variable is not None and "variable" in vdo and variable.pk in vdo["variable"]:
+            if (
+                variable is not None
+                and "variable" in vdo
+                and variable.pk in vdo["variable"]
+            ):
                 pass
-            elif variable_property is not None and "variable_property" in vdo and variable_property.pk in vdo["variable_property"]:
+            elif (
+                variable_property is not None
+                and "variable_property" in vdo
+                and variable_property.pk in vdo["variable_property"]
+            ):
                 pass
             else:
-                logger.info(f"variable {variable} or variable_property {variable_property} not allowed in view {hst.view} for user {hst.user}")
+                logger.info(
+                    f"variable {variable} or variable_property {variable_property} not allowed in view {hst.view} for user {hst.user}"
+                )
                 return False
 
             data = {}
@@ -58,7 +79,9 @@ class PyScadaSSEConfig(AppConfig):
                     timestamp = max(timestamp, t)
             if variable_property is not None:
                 t = variable_property.last_modified.timestamp() * 1000
-                data["variable_properties"] = {variable_property.id: float(variable_property.value())}
+                data["variable_properties"] = {
+                    variable_property.id: float(variable_property.value())
+                }
                 data["variable_properties_last_modified"] = {variable_property.id: t}
                 timestamp = max(timestamp, t)
             data["timestamp"] = timestamp

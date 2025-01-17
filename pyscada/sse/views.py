@@ -29,10 +29,12 @@ logger = logging.getLogger(__name__)
 def test_sse(request):
     return TemplateResponse(request, "test_sse.html")
 
+
 @login_required
 async def no_session_key(request):
     logger.warning(f"no session key for {request}")
     return HttpResponseBadRequest("Missing session_key")
+
 
 @login_required
 @requires_csrf_token
@@ -49,39 +51,71 @@ def need_historical_data(request):
         if start == 0:
             start = (time() - 2 * 3600) * 1000
         variables = list(Variable.objects.filter(id__in=data["variable_ids"]))
-        status_variables = list(Variable.objects.filter(id__in=data["status_variable_ids"]))
-        variable_properties = list(VariableProperty.objects.filter(id__in=data["variable_property_ids"]))
+        status_variables = list(
+            Variable.objects.filter(id__in=data["status_variable_ids"])
+        )
+        variable_properties = list(
+            VariableProperty.objects.filter(id__in=data["variable_property_ids"])
+        )
         logger.info(variables)
         logger.info(status_variables)
         logger.info(variable_properties)
         logger.info(data["variable_property_ids"])
         try:
-            view = get_group_display_permission_list(View.objects, request.user.groups.all()).get(id=data["view_id"])
+            view = get_group_display_permission_list(
+                View.objects, request.user.groups.all()
+            ).get(id=data["view_id"])
         except View.DoesNotExist as e:
             logger.warning(e)
-            body = json.dumps({"error": "view with id {request.POST['view_id']} not found."}, cls=DjangoJSONEncoder) + "\n"
+            body = (
+                json.dumps(
+                    {"error": "view with id {request.POST['view_id']} not found."},
+                    cls=DjangoJSONEncoder,
+                )
+                + "\n"
+            )
             return HttpResponse(body, content_type="application/json")
         with transaction.atomic():  # create the historic
             try:
                 hst, created = Historic.objects.update_or_create(
                     session_key=session_key,
                     view=view,
-                    defaults={"user": user,
-                    "start": datetime.datetime.fromtimestamp(start / 1000, tz=datetime.timezone.utc),
-                    "end": datetime.datetime.fromtimestamp(end / 1000, tz=datetime.timezone.utc),
-                    "done": False,}
-                    )
+                    defaults={
+                        "user": user,
+                        "start": datetime.datetime.fromtimestamp(
+                            start / 1000, tz=datetime.timezone.utc
+                        ),
+                        "end": datetime.datetime.fromtimestamp(
+                            end / 1000, tz=datetime.timezone.utc
+                        ),
+                        "done": False,
+                    },
+                )
             except Historic.MultipleObjectsReturned:
-                logger.info(f"Deleting duplicate {Historic.objects.filter(session_key=session_key, view=view)[1:].count()} historic of session {session_key} and view {view}")
-                Historic.objects.filter(id__in=list(Historic.objects.filter(session_key=session_key, view=view).values_list('pk', flat=True)[1:])).delete()
+                logger.info(
+                    f"Deleting duplicate {Historic.objects.filter(session_key=session_key, view=view)[1:].count()} historic of session {session_key} and view {view}"
+                )
+                Historic.objects.filter(
+                    id__in=list(
+                        Historic.objects.filter(
+                            session_key=session_key, view=view
+                        ).values_list("pk", flat=True)[1:]
+                    )
+                ).delete()
                 hst, created = Historic.objects.update_or_create(
                     session_key=session_key,
                     view=view,
-                    defaults={"user": user,
-                    "start": datetime.datetime.fromtimestamp(start / 1000, tz=datetime.timezone.utc),
-                    "end": datetime.datetime.fromtimestamp(end / 1000, tz=datetime.timezone.utc),
-                    "done": False,}
-                    )
+                    defaults={
+                        "user": user,
+                        "start": datetime.datetime.fromtimestamp(
+                            start / 1000, tz=datetime.timezone.utc
+                        ),
+                        "end": datetime.datetime.fromtimestamp(
+                            end / 1000, tz=datetime.timezone.utc
+                        ),
+                        "done": False,
+                    },
+                )
 
             hst.update_objects(variables, status_variables, variable_properties)
             consume_historic.send_robust(sender=Historic, instance=hst)
@@ -90,6 +124,7 @@ def need_historical_data(request):
         return HttpResponse(body, content_type="application/json")
     else:
         return HttpResponseNotAllowed(["POST"])
+
 
 def send_filter(user, channel, item):
     logger.info(user)

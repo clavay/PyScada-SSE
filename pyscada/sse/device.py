@@ -1,3 +1,4 @@
+"""
         # Add current sessions : updated during the last 24h.
         self.sessions = []
         if apps.is_installed("pyscada.sse"):
@@ -7,3 +8,4 @@
                     for var in hst.variables.all():
                         if var_id in self.device.variable_set.all():
                             self.sessions.append(hst)
+"""

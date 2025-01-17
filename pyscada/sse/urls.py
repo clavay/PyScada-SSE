@@ -13,10 +13,17 @@ urlpatterns = [
     path("need_historical_data/", views.need_historical_data),
     path("events/session//", views.no_session_key),
     # django_eventstream path should start with "events/"
-    path("events/broadcast/", include(django_eventstream.urls), {"channels": ["broadcast"], "send_filter": views.send_filter}),
+    path(
+        "events/broadcast/",
+        include(django_eventstream.urls),
+        {"channels": ["broadcast"], "send_filter": views.send_filter},
+    ),
     path(
         "events/session/<session_id>/view/<view_id>",
         include(django_eventstream.urls),
-        {"format-channels": ["session-{session_id}-view-{view_id}"], "send_filter": views.send_filter},
+        {
+            "format-channels": ["session-{session_id}-view-{view_id}"],
+            "send_filter": views.send_filter,
+        },
     ),
 ]
