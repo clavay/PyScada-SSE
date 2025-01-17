@@ -26,12 +26,9 @@ class PyScadaSSEConfig(AppConfig):
         logger.debug(f"{__app_name__} init app")
 
         try:
-            from pyscada.hmi.models import Theme
+            from pyscada.sse.models import SSE
 
-            Theme.objects.update_or_create(
-                name="SSE",
-                defaults={"base_filename": "base", "view_filename": "view_sse"},
-            )
+            SSE.objects.get_or_create(id=1)
         except ProgrammingError:
             pass
         except OperationalError:

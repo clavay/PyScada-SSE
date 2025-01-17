@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-from pyscada.hmi.models import View
+from pyscada.hmi.models import View, WidgetContentModel
 from pyscada.models import Variable, VariableProperty
 
 from django.db import models
 from django.contrib.auth.models import User
 from django.forms.models import BaseInlineFormSet
 from django import forms
+from django.template.loader import get_template
+from django.conf import settings
 
 from django_eventstream import send_event
 from time import time
@@ -149,3 +151,37 @@ class Historic(models.Model):
             self.variables.add(*variables_filtered)  # TODO : filter authorized variables
             self.status_variables.add(*status_variables_filtered)  # TODO : filter authorized variables
             self.variable_properties.add(*variable_properties_filtered)  # TODO : filter authorized variables
+
+
+class SSE(WidgetContentModel):
+    id = models.AutoField(primary_key=True)
+
+    def __str__(self):
+        return str(self.id)
+
+    def visible(self):
+        return True
+
+    def data_objects(self, user):
+        # used to get all objects which need to retrive data
+        return {}
+
+    def gen_html(self, **kwargs):
+        """
+        :return: main panel html and sidebar html as
+        """
+        widget_pk = kwargs["widget_pk"] if "widget_pk" in kwargs else 0
+
+        main_template = get_template("load_sse.html")
+        main_content = main_template.render(dict(widget_pk=widget_pk,view=kwargs["view"],request=kwargs["request"]))
+        sidebar_content = None
+
+        opts = dict()
+        STATIC_URL = (
+            str(settings.STATIC_URL)
+            if hasattr(settings, "STATIC_URL")
+            else "/static/"
+        )
+        opts["javascript_files_list"] = [f"{STATIC_URL}django_eventstream/eventsource.min.js", f"{STATIC_URL}django_eventstream/reconnecting-eventsource.js", f"{STATIC_URL}pyscada/js/sse/pyscada_sse.js", ]
+
+        return main_content, sidebar_content, opts
