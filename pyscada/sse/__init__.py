@@ -8,3 +8,13 @@ __author__ = "Camille Lavayssiere"
 __email__ = "team@pyscada.org"
 __description__ = "Server-Sent-Event extension for PyScada a Python and Django based Open Source SCADA System"
 __app_name__ = "SSE"
+
+parent_process_list = [
+    {
+        "pk": 20,
+        "label": "pyscada.sse",
+        "process_class": "pyscada.sse.worker.Process",
+        "process_class_kwargs": '{"dt_set":1}',
+        "enabled": True,
+    },
+]

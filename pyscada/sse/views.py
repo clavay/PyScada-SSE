@@ -7,7 +7,6 @@ from pyscada.models import Variable, VariableProperty, DeviceWriteTask
 from pyscada.hmi.models import View, GroupDisplayPermission
 from pyscada.utils import get_group_display_permission_list
 from pyscada.sse.models import Historic
-from pyscada.sse.signals import consume_historic
 
 from django.db import IntegrityError, transaction
 from django.core.serializers.json import DjangoJSONEncoder
@@ -57,10 +56,6 @@ def need_historical_data(request):
         variable_properties = list(
             VariableProperty.objects.filter(id__in=data["variable_property_ids"])
         )
-        logger.info(variables)
-        logger.info(status_variables)
-        logger.info(variable_properties)
-        logger.info(data["variable_property_ids"])
         try:
             view = get_group_display_permission_list(
                 View.objects, request.user.groups.all()
@@ -88,7 +83,7 @@ def need_historical_data(request):
                         "end": datetime.datetime.fromtimestamp(
                             end / 1000, tz=datetime.timezone.utc
                         ),
-                        "done": False,
+                        "done": True,
                     },
                 )
             except Historic.MultipleObjectsReturned:
@@ -113,12 +108,10 @@ def need_historical_data(request):
                         "end": datetime.datetime.fromtimestamp(
                             end / 1000, tz=datetime.timezone.utc
                         ),
-                        "done": False,
+                        "done": True,
                     },
                 )
-
             hst.update_objects(variables, status_variables, variable_properties)
-            consume_historic.send_robust(sender=Historic, instance=hst)
 
         body = json.dumps(hst.to_data(), cls=DjangoJSONEncoder) + "\n"
         return HttpResponse(body, content_type="application/json")

@@ -52,7 +52,6 @@ class PyScadaSSEConfig(AppConfig):
         ):
             vdo = hst.view.data_objects(hst.user)
             logger.debug(vdo)
-            variables_filtered = []
             if (
                 variable is not None
                 and "variable" in vdo

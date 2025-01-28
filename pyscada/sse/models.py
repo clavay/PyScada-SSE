@@ -41,6 +41,12 @@ class Historic(models.Model):
         out["start"] = self.start
         out["end"] = self.end
         out["variable_ids"] = list(self.variables.values_list("id", flat=True))
+        out["status_variable_ids"] = list(
+            self.status_variables.values_list("id", flat=True)
+        )
+        out["variable_property_ids"] = list(
+            self.variable_properties.values_list("id", flat=True)
+        )
         out["done"] = self.done
         return out
 
@@ -62,7 +68,7 @@ class Historic(models.Model):
         )
 
     def is_expired(self, td=timedelta(days=1)):
-        return datetime.now(tz=timezone.utc) - self.updated <= td
+        return datetime.now(tz=timezone.utc) - self.updated >= td
 
     def read_and_send_data(self):
         self.send_message({"historic": "read_start"}, async_publish=True)
@@ -71,16 +77,18 @@ class Historic(models.Model):
         start_temp = end_temp = end
 
         # status variables
+        status_variable_list = list(self.status_variables.values_list("id", flat=True))
         read_multiple_kwargs = {
-            "variable_ids": list(self.status_variables.values_list("id", flat=True)),
+            "variable_ids": status_variable_list,
             "time_min": end_temp / 1000,
             "time_max": end_temp / 1000,
             "time_in_ms": True,
             "query_first_value": True,
         }
-        result = Variable.objects.read_multiple(**read_multiple_kwargs)
-        # logger.info(result)
-        self.send_message({"data": result, "percent": 0}, async_publish=True)
+        if len(status_variable_list):
+            result = Variable.objects.read_multiple(**read_multiple_kwargs)
+            # logger.info(result)
+            self.send_message({"data": result, "percent": 0}, async_publish=True)
 
         # variable_properties
         result = {}
@@ -100,26 +108,30 @@ class Historic(models.Model):
         dt_ms = 1 * 24 * 3600 * 1000  # 1 day in millisecond
         vars_ids = list(self.variables.values_list("id", flat=True))
 
-        while start_temp > start:
-            t_start = time()
-            start_temp = max(start_temp - dt_ms, start)
-            read_multiple_kwargs = {
-                "variable_ids": vars_ids,
-                "time_min": start_temp / 1000,
-                "time_max": end_temp / 1000,
-                "time_in_ms": True,
-            }
-            result = Variable.objects.read_multiple(**read_multiple_kwargs)
-            # logger.debug(result)
-            result["timestamp"] = end
-            percent = (end - start_temp) / (end - start)
-            logger.debug(
-                f"{percent}% - querying {datetime.fromtimestamp(start_temp/1000)} to {datetime.fromtimestamp(end_temp/1000)} for {list(self.variables.values_list('id', flat=True))} {list(self.status_variables.values_list('id', flat=True))} {list(self.variable_properties.values_list('id', flat=True))}"
-            )
-            self.send_message({"data": result, "percent": percent}, async_publish=True)
-            end_temp = start_temp
+        if len(status_variable_list):
+            while start_temp > start:
+                self.start = start_temp
+                t_start = time()
+                start_temp = max(start_temp - dt_ms, start)
+                read_multiple_kwargs = {
+                    "variable_ids": vars_ids,
+                    "time_min": start_temp / 1000,
+                    "time_max": end_temp / 1000,
+                    "time_in_ms": True,
+                }
+                result = Variable.objects.read_multiple(**read_multiple_kwargs)
+                # logger.debug(result)
+                result["timestamp"] = end
+                percent = (end - start_temp) / (end - start)
+                logger.debug(
+                    f"{percent}% - querying {datetime.fromtimestamp(start_temp/1000)} to {datetime.fromtimestamp(end_temp/1000)} for {list(self.variables.values_list('id', flat=True))} {list(self.status_variables.values_list('id', flat=True))} {list(self.variable_properties.values_list('id', flat=True))}"
+                )
+                self.send_message(
+                    {"data": result, "percent": percent}, async_publish=True
+                )
+                end_temp = start_temp
 
-        self.send_message({"historic": "read_end"}, async_publish=True)
+        self.send_message({"historic": "read_end", "percent": 1}, async_publish=True)
         self.done = True
         self.save(update_fields=["done"])
 
@@ -162,6 +174,9 @@ class Historic(models.Model):
         self.variables.add(*variables_filtered)
         self.status_variables.add(*status_variables_filtered)
         self.variable_properties.add(*variable_properties_filtered)
+
+        self.done = False
+        self.save(update_fields=["done"])
 
 
 class SSE(WidgetContentModel):
