@@ -11,9 +11,9 @@ __app_name__ = "SSE"
 
 parent_process_list = [
     {
-        "pk": 20,
+        "pk": 21,
         "label": "pyscada.sse",
-        "process_class": "pyscada.sse.worker.Process",
+        "process_class": "pyscada.sse.worker.SSEProcess",
         "process_class_kwargs": '{"dt_set":1}',
         "enabled": True,
     },
