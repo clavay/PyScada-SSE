@@ -2,7 +2,7 @@
 from __future__ import unicode_literals
 
 from pyscada.hmi.models import View, WidgetContentModel
-from pyscada.models import Variable, VariableProperty
+from pyscada.models import Variable, VariableProperty, BackgroundProcess
 
 from django.db import models
 from django.contrib.auth.models import User
@@ -14,6 +14,7 @@ from django.conf import settings
 from django_eventstream import send_event
 from time import time
 from datetime import datetime, timezone, timedelta
+import signal
 import logging
 
 logger = logging.getLogger(__name__)
@@ -30,6 +31,7 @@ class Historic(models.Model):
     variable_properties = models.ManyToManyField(VariableProperty)
 
     done = models.BooleanField(default=False)
+    busy = models.BooleanField(default=False)
     updated = models.DateTimeField(auto_now=True)
 
     def to_data(self):
@@ -48,9 +50,10 @@ class Historic(models.Model):
             self.variable_properties.values_list("id", flat=True)
         )
         out["done"] = self.done
+        out["busy"] = self.busy
         return out
 
-    def send_message(self, message=None, async_publish=False):
+    def send_message(self, message={}, async_publish=False):
         message["historic_state"] = self.to_data()
         if "data" not in message:
             message["data"] = {}
@@ -108,7 +111,7 @@ class Historic(models.Model):
         dt_ms = 1 * 24 * 3600 * 1000  # 1 day in millisecond
         vars_ids = list(self.variables.values_list("id", flat=True))
 
-        if len(status_variable_list):
+        if len(vars_ids):
             while start_temp > start:
                 self.start = start_temp
                 t_start = time()

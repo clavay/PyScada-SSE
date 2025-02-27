@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-import traceback
-
 from pyscada.models import Variable, VariableProperty, DeviceWriteTask
-from pyscada.hmi.models import View, GroupDisplayPermission
+from pyscada.models import BackgroundProcess
+from pyscada.hmi.models import View, GroupDisplayPermission, ControlItem
 from pyscada.utils import get_group_display_permission_list
 from pyscada.sse.models import Historic
 
@@ -15,6 +14,8 @@ from django.http import HttpResponse, HttpResponseNotAllowed, HttpResponseBadReq
 from django.views.decorators.csrf import requires_csrf_token
 from django.contrib.auth.decorators import login_required
 
+from os import kill
+import signal
 import json
 from time import time
 import datetime
@@ -45,17 +46,7 @@ def need_historical_data(request):
         session_key = request.session.session_key
         start = data["start"]
         end = data["end"]
-        if end == 0:
-            end = time() * 1000
-        if start == 0:
-            start = (time() - 2 * 3600) * 1000
-        variables = list(Variable.objects.filter(id__in=data["variable_ids"]))
-        status_variables = list(
-            Variable.objects.filter(id__in=data["status_variable_ids"])
-        )
-        variable_properties = list(
-            VariableProperty.objects.filter(id__in=data["variable_property_ids"])
-        )
+
         try:
             view = get_group_display_permission_list(
                 View.objects, request.user.groups.all()
@@ -70,6 +61,7 @@ def need_historical_data(request):
                 + "\n"
             )
             return HttpResponse(body, content_type="application/json")
+
         with transaction.atomic():  # create the historic
             try:
                 hst, created = Historic.objects.update_or_create(
@@ -84,6 +76,7 @@ def need_historical_data(request):
                             end / 1000, tz=datetime.timezone.utc
                         ),
                         "done": True,
+                        "busy": True,
                     },
                 )
             except Historic.MultipleObjectsReturned:
@@ -109,10 +102,77 @@ def need_historical_data(request):
                             end / 1000, tz=datetime.timezone.utc
                         ),
                         "done": True,
+                        "busy": True,
                     },
                 )
-            hst.update_objects(variables, status_variables, variable_properties)
 
+            if start == end == 0:
+                # send server time
+                hst.send_message()
+            else:
+                if end == 0:
+                    end = time() * 1000
+                if start == 0:
+                    start = (time() - 2 * 3600) * 1000
+
+                variables = list(Variable.objects.filter(id__in=data["variable_ids"]))
+                status_variables = list(
+                    Variable.objects.filter(id__in=data["status_variable_ids"])
+                )
+                variable_properties = list(
+                    VariableProperty.objects.filter(id__in=data["variable_property_ids"])
+                )
+                hst.update_objects(variables, status_variables, variable_properties)
+
+                bp = None
+
+                try:
+                    sseBp = BackgroundProcess.objects.get(label="pyscada.sse")
+                    logger.info(f"creating BP")
+                    bp, created = BackgroundProcess.objects.get_or_create(
+                        label="pyscada.sse.historic-%d" % hst.pk,
+                        defaults={
+                            "message":"waiting..",
+                            "enabled":True,
+                            "parent_process_id":sseBp.parent_process_id,
+                            "process_class":"pyscada.sse.worker.HistoricProcess",
+                            "process_class_kwargs":json.dumps({"historic_id": hst.pk}),
+                            }
+                    )
+                except BackgroundProcess.MultipleObjectsReturned:
+                    for bp in BackgroundProcess.objects.filter(label="pyscada.sse.historic-%d" % hst.pk,):
+                        bp.stop(signal.SIGKILL)
+                        bp.delete()
+                    bp, created = BackgroundProcess.objects.get_or_create(
+                        label="pyscada.sse.historic-%d" % hst.pk,
+                        defaults={
+                            "message":"waiting..",
+                            "enabled":True,
+                            "parent_process_id":sseBp.parent_process_id,
+                            "process_class":"pyscada.sse.worker.HistoricProcess",
+                            "process_class_kwargs":json.dumps({"historic_id": hst.pk}),
+                            }
+                        )
+                except BackgroundProcess.DoesNotExist:
+                    logger.warning(f"SSE BackgroundProcess does not exist.")
+                finally:
+                    if bp is not None:
+                        logger.info("bp found")
+                        if not created:
+                            logger.info(f"not created {bp.pid}")
+                            bp.stop(signal.SIGKILL)
+                            bp.delete()
+                            bp, created = BackgroundProcess.objects.get_or_create(
+                                label="pyscada.sse.historic-%d" % hst.pk,
+                                defaults={
+                                    "message":"waiting..",
+                                    "enabled":True,
+                                    "parent_process_id":sseBp.parent_process_id,
+                                    "process_class":"pyscada.sse.worker.HistoricProcess",
+                                    "process_class_kwargs":json.dumps({"historic_id": hst.pk}),
+                                    }
+                            )
+        logger.info("end need hist")
         body = json.dumps(hst.to_data(), cls=DjangoJSONEncoder) + "\n"
         return HttpResponse(body, content_type="application/json")
     else:
@@ -178,7 +238,9 @@ async def aform_write_task(request):
             if "view_id" in request.POST:
                 # for a view, get the list of variables and variable properties for which the user can retrieve and write data
                 view_id = int(request.POST["view_id"])
-                vdo = (await View.objects.aget(id=view_id)).data_objects(request.user)
+                view = await View.objects.aget(id=view_id)
+                vdo = await view.adata_objects(request.user)
+                logger.info(vdo)
             else:
                 vdo = None  # should it get data objets for all views ?
 
@@ -203,7 +265,7 @@ async def aform_write_task(request):
                     ):
                         can_write = True
                     else:
-                        logger.debug(
+                        logger.info(
                             "Missing group display permission for write task (variable %s)"
                             % key
                         )
