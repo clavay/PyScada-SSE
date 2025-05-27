@@ -108,7 +108,7 @@ def need_historical_data(request):
 
             if start == end == 0:
                 # send server time
-                hst.send_message()
+                hst.send_message({})
             else:
                 if end == 0:
                     end = time() * 1000
