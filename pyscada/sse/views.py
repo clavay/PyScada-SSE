@@ -14,6 +14,8 @@ from django.http import HttpResponse, HttpResponseNotAllowed, HttpResponseBadReq
 from django.views.decorators.csrf import requires_csrf_token
 from django.contrib.auth.decorators import login_required
 
+from asgiref.sync import sync_to_async
+
 from os import kill
 import signal
 import json
@@ -239,7 +241,7 @@ async def aform_write_task(request):
                 # for a view, get the list of variables and variable properties for which the user can retrieve and write data
                 view_id = int(request.POST["view_id"])
                 view = await View.objects.aget(id=view_id)
-                vdo = await view.adata_objects(request.user)
+                vdo = await sync_to_async(view.data_objects)(request.user)
                 logger.info(vdo)
             else:
                 vdo = None  # should it get data objets for all views ?
